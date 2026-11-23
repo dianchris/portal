@@ -1,0 +1,51 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:${PORTAL_UI_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    environment:
+      PORTAL_DEMO_ACCOUNTS_ENABLED: ${PORTAL_DEMO_ACCOUNTS_ENABLED:-false}
+      PORTAL_BIND: 0.0.0.0
+      BACKSTAGE_URL: ${BACKSTAGE_URL:-http://host.docker.internal:8091}
+      BACKSTAGE_TOKEN: ${BACKSTAGE_TOKEN:?Set BACKSTAGE_TOKEN in .env}
+      PORTAL_USERNAME: ${PORTAL_USERNAME:-partner}
+      PORTAL_PASSWORD: ${PORTAL_PASSWORD:?Set PORTAL_PASSWORD in .env}
+      PORTAL_SANDBOX_USERNAME: ${PORTAL_SANDBOX_USERNAME:-partner-sandbox}
+      PORTAL_SANDBOX_PASSWORD: ${PORTAL_SANDBOX_PASSWORD:-}
+      PORTAL_ORGANIZATION: ${PORTAL_ORGANIZATION:-demo-partner}
+      PORTAL_DATABASE_URL: jdbc:postgresql://portal-database:5432/portal
+      PORTAL_DATABASE_USER: portal
+      PORTAL_DATABASE_PASSWORD: ${PORTAL_DATABASE_PASSWORD:?Set PORTAL_DATABASE_PASSWORD in .env}
+      PORTAL_REGISTRATION_TOKEN: ${PORTAL_REGISTRATION_TOKEN:?Set PORTAL_REGISTRATION_TOKEN in .env}
+      PORTAL_INVITATION_KEY: ${PORTAL_INVITATION_KEY:?Set PORTAL_INVITATION_KEY in .env}
+      PORTAL_PUBLIC_URL: ${PORTAL_PUBLIC_URL:-http://localhost:3000}
+    ports:
+      - "127.0.0.1:${PORTAL_API_PORT:-8092}:8080"
+    depends_on:
+      portal-database:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  portal-database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: portal
+      POSTGRES_DB: portal
+      POSTGRES_PASSWORD: ${PORTAL_DATABASE_PASSWORD:?Set PORTAL_DATABASE_PASSWORD in .env}
+    volumes:
+      - portal-database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "portal", "-d", "portal"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+
+volumes:
+  portal-database:
